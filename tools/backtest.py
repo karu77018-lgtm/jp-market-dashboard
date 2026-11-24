@@ -98,13 +98,16 @@ def event_state(P, t, i):
 
 
 def run(P, S, start, *, use_regime=True, use_ud=True, use_buyable=True, stock_cap=None, max_names=MAX_NAMES,
-        initial=INITIAL):
+        initial=INITIAL, exit_mode="ema21", hold=60, trail=TRAIL):
+    """exit_mode: ema21 (US rule) | ma50 (close under the 50-day line) | time (sell after ``hold`` sessions)
+    | none (stop + trail only).  The -8% stop and the trail apply in every mode."""
     dates = P["close"].index
     o, h, l, c = (P[k] for k in ("open", "high", "low", "close"))
     ref = P["close"][REGIME_SYM]
     regime = (ref > ref.rolling(200).mean()).reindex(dates).fillna(False)
     sig = S["selected"] & S["timing"] & (S["ud_ok"].fillna(True) if use_ud else True)
     el21 = S["el21"]
+    ma50 = c.rolling(50, min_periods=50).mean()
     i0 = dates.searchsorted(pd.Timestamp(start))
     cash, pos = float(START_CAPITAL), {}
     pending_buy, pending_add, pending_sell = [], set(), set()
@@ -176,10 +179,16 @@ def run(P, S, start, *, use_regime=True, use_ud=True, use_buyable=True, stock_ca
             if np.isnan(x):
                 continue
             p["peak"] = max(p["peak"], x)
-            if x < el21[t].iat[i]:
+            if exit_mode == "ema21" and x < el21[t].iat[i]:
                 pending_sell.add(t)
                 p["why"] = "21EMA"
-            elif x < p["peak"] * (1 - TRAIL):
+            elif exit_mode == "ma50" and x < ma50[t].iat[i]:
+                pending_sell.add(t)
+                p["why"] = "50MA"
+            elif exit_mode == "time" and i - p["i"] >= hold - 1:
+                pending_sell.add(t)
+                p["why"] = "time"
+            elif x < p["peak"] * (1 - trail):
                 pending_sell.add(t)
                 p["why"] = "trail"
             elif p["adds"] == 0 and x >= p["entry"] * 1.10:

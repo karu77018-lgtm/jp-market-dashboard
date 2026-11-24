@@ -161,7 +161,8 @@ function renderSwing(){
   const sec=(t,n,s)=>`<div class="sec">${t}<small>${n}件</small></div>${s}`;
   $('#swing').innerHTML=`
   <div class="card"><h2>スイング候補<span>流動性ユニバース ${W.universe}銘柄・選定 ${W.selected}</span></h2>
-    ${on?'<div class="bar on">地合いOK：本命を表示</div>':'<div class="bar off"><b>地合い：新規停止</b>　本命は出さず監視だけ</div>'}
+    <div class="bar off"><b>検証NG・参考表示のみ</b>　米国ルールのままだと日本株では優位性なし（2018年1月〜2026年11月：年率+0.3%・最大DD−33.5%、TOPIX連動ETF保有は+11.1%・−32.7%）。売買には使わない</div>
+    ${on?'<div class="bar on">地合いOK</div>':'<div class="bar off"><b>地合い：新規停止</b></div>'}
     <details class="x"><summary>読み方</summary><div>米国版の新ルールをそのまま移植。選定＝トレンドテンプレート・50日平均売買代金が上位5%・189日リターンが上位10%（株価${D.params.min_price}円以上かつ50日平均売買代金${D.params.min_dv/1e8}億円以上の中で）。タイミング＝値幅収縮（10日/50日≦0.9）・出来高減（5日/50日≦0.9）・当日+3%未満・前日+3%以下・UD比1.4未満。本命＝それに加えて週足SARが上向きで、HL→ラインの下半分にいないもの。<b>日本株での検証はまだ</b>なので、閾値（円建ての流動性条件を含む）は仮置き。</div></details>
     ${sec('本命',best.length,best.map(r=>card(r,'')).join('')||'<div class="empty">本日の本命なし</div>')}
     ${sec('まだ入れる',late.length,late.map(r=>card(r,'late')).join('')||'<div class="empty">なし</div>')}
