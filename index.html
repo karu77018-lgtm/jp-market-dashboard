@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>JP Market</title>
+<style>
+:root{--bg:#f4f3ef;--card:#fbfaf7;--line:#e3e1db;--ink:#1c1b19;--sub:#6f6c62;--up:#23824d;--dn:#b5523f;--warn:#8a7b3c;--acc:#3774d3}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.55 -apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;-webkit-text-size-adjust:100%}
+header{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);padding:10px 12px 0}
+.top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.top h1{font-size:17px;margin:0;letter-spacing:.02em}
+.top small{color:var(--sub);font-size:12px}
+nav{display:flex;gap:4px;overflow-x:auto;margin-top:8px}
+nav button{flex:0 0 auto;border:0;background:none;padding:8px 12px;font:inherit;font-weight:700;color:var(--sub);border-bottom:3px solid transparent}
+nav button.on{color:var(--ink);border-bottom-color:var(--up)}
+main{max-width:760px;margin:0 auto;padding:10px 10px 40px}
+section{display:none}section.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0}
+.card h2{font-size:15px;margin:0 0 6px;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.card h2 span{font-size:12px;color:var(--sub);font-weight:600}
+details.x{margin:4px 0 8px}details.x summary{font-size:12px;color:var(--sub);cursor:pointer}
+details.x div{font-size:12px;color:#4d4a40;margin-top:4px}
+.bar{border-radius:9px;padding:9px 11px;font-size:13px;margin:4px 0}
+.bar.on{background:#e3f1e8;color:#17603a}.bar.off{background:#f6e3de;color:#8d3626}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.kpi{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:#fff}
+.kpi b{display:block;font-size:20px;font-variant-numeric:tabular-nums}
+.kpi span{font-size:11px;color:var(--sub)}
+.kpi i{font-style:normal;font-size:12px}
+.up{color:var(--up)}.dn{color:var(--dn)}.mut{color:var(--sub)}
+table{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+th{font-size:11px;color:var(--sub);font-weight:600;text-align:right;padding:4px 4px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:6px 4px;border-bottom:1px solid #eeece6;text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left;white-space:normal;min-width:6.5em}
+table.tight{font-size:12px}table.tight td,table.tight th{padding:6px 3px}
+.wrap{overflow-x:auto}
+.st{font-size:11px;border-radius:5px;padding:1px 6px;color:#fff;margin-left:4px}
+.st.ok{background:var(--up)}.st.hot{background:var(--dn)}.st.watch{background:var(--warn)}
+.row{border:1px solid var(--line);border-left:4px solid var(--up);border-radius:10px;padding:9px 10px;margin:7px 0;background:#fff}
+.row.wait{border-left-color:#c9c5b8}.row.late{border-left-color:#7aa37d}.row.w{border-left-color:var(--warn)}
+.row .h{display:flex;justify-content:space-between;gap:6px;font-weight:700}
+.row .m{font-size:12px;color:#4d4a40;margin-top:3px;overflow-wrap:anywhere}
+.chip{display:inline-block;font-size:11px;border-radius:999px;padding:1px 8px;background:#e6e4dd;margin:3px 4px 0 0}
+.chip.g{background:#e3f1e8;color:#17603a}.chip.r{background:#f6e3de;color:#8d3626}
+.sec{font-weight:800;font-size:13px;margin:14px 0 4px}
+.sec small{font-weight:600;color:var(--sub);margin-left:6px}
+svg{display:block;width:100%;height:auto}
+.note{font-size:11px;color:var(--sub);margin-top:16px}
+.empty{font-size:13px;color:var(--sub);padding:6px 2px}
+</style>
+</head>
+<body>
+<header>
+  <div class="top"><h1>JP Market</h1><small id="asof">読み込み中…</small></div>
+  <nav id="nav">
+    <button data-t="mkt" class="on">地合い</button>
+    <button data-t="sec">業種</button>
+    <button data-t="swing">スイング候補</button>
+    <button data-t="lead">リーダー</button>
+  </nav>
+</header>
+<main>
+<section id="mkt" class="on"></section>
+<section id="sec"></section>
+<section id="swing"></section>
+<section id="lead"></section>
+<p class="note">自分用の分析メモ。売買の推奨ではありません。データは日足（引け後更新）。</p>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+const P=(v,d=1)=>v==null?'—':((v>0?'+':'')+(v*100).toFixed(d)+'%');
+const R=(v,d=0)=>v==null?'—':(v*100).toFixed(d)+'%';
+const Y=v=>v==null?'—':Number(v).toLocaleString('ja-JP',{maximumFractionDigits:v<1000?1:0});
+const cls=v=>v==null?'':(v>0?'up':v<0?'dn':'');
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let D;
+document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('on',x===b));
+  document.querySelectorAll('main section').forEach(s=>s.classList.toggle('on',s.id===b.dataset.t));
+  try{localStorage.setItem('jpTab',b.dataset.t)}catch(e){}
+});
+const nm=t=>{const n=D.names[t];return `<b>${esc(t.replace('.T',''))}</b> ${esc(n?n.name:'')}`};
+const sub=t=>{const n=D.names[t];return n?`${esc(n.s33)}・${{P:'プライム',S:'スタンダード',G:'グロース'}[n.m]||''}`:''};
+
+function spark(arr,{h=60,color='#23824d',fmt=v=>v,ref=null}={}){
+  const v=arr.filter(x=>x!=null);if(v.length<2)return '';
+  const w=300,lo=Math.min(...v,ref??Infinity),hi=Math.max(...v,ref??-Infinity),sp=(hi-lo)||1;
+  const pts=arr.map((x,i)=>x==null?null:[i/(arr.length-1)*w,h-4-(x-lo)/sp*(h-8)]).filter(Boolean);
+  const r=ref==null?'':`<line x1="0" x2="${w}" y1="${h-4-(ref-lo)/sp*(h-8)}" y2="${h-4-(ref-lo)/sp*(h-8)}" stroke="#c9c5b8" stroke-dasharray="3 3"/>`;
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">${r}<polyline fill="none" stroke="${color}" stroke-width="2" points="${pts.map(p=>p.map(n=>n.toFixed(1)).join(',')).join(' ')}"/></svg>
+  <div style="display:flex;justify-content:space-between;font-size:11px;color:#6f6c62"><span>${fmt(v[0])}</span><span>120日</span><span>${fmt(v[v.length-1])}</span></div>`;
+}
+
+function renderMkt(){
+  const g=D.regime, b=D.breadth, H=D.breadth_hist;
+  const bar=g.on?`<div class="bar on">地合いOK：TOPIX連動ETF ${Y(g.close)} は200日線 ${Y(g.ma200)} の${P(g.vs200)}上。新規エントリー可</div>`
+    :`<div class="bar off"><b>地合い：新規停止</b>　TOPIX連動ETF ${Y(g.close)} が200日線 ${Y(g.ma200)} を${P(g.vs200)}。本命は出さず監視だけ</div>`;
+  const refs=D.refs.map(r=>`<div class="kpi"><span>${esc(r.name)}</span><b>${Y(r.close)}</b>
+    <i class="${cls(r.chg)}">${P(r.chg,2)}</i> <i class="mut">1か月 <span class="${cls(r.r21)}">${P(r.r21)}</span></i><br>
+    <i class="mut">50日線 <span class="${cls(r.vs50)}">${P(r.vs50)}</span>・200日線 <span class="${cls(r.vs200)}">${P(r.vs200)}</span>${r.ma200_up?'↑':'↓'}</i><br>
+    <i class="mut">52週高値から ${P(r.from_high)}</i></div>`).join('');
+  const mrow=k=>{const x=b[k];return `<tr><td>${k==='all'?'全体':x.name}</td><td>${x.n}</td><td>${R(x.a50)}</td><td>${R(x.a200)}</td><td class="up">${x.nh}</td><td class="dn">${x.nl}</td><td>${x.tt}<br><span class="mut" style="font-size:11px">${R(x.tt_rate,1)}</span></td></tr>`};
+  $('#mkt').innerHTML=`
+  <div class="card"><h2>地合い<span>${D.session}</span></h2>${bar}
+    <details class="x"><summary>読み方</summary><div>米国版の「QQQが200日線の上なら新規OK」を、TOPIX連動ETF（1306）に置き換えた判定。日本株での検証はまだ。</div></details>
+    <div class="grid">${refs}</div></div>
+  <div class="card"><h2>市場の広がり<span>内国株・上場1年以上</span></h2>
+    <details class="x"><summary>読み方</summary><div>50日線・200日線の上にいる銘柄の割合、52週の新高値・新安値の数、トレンドテンプレート8条件をすべて満たした銘柄数（RSは全銘柄内の順位）。</div></details>
+    <div class="wrap"><table class="tight"><tr><th>市場</th><th>銘柄</th><th>50日線上</th><th>200日線上</th><th>新高値</th><th>新安値</th><th>TT通過</th></tr>
+    ${['all','P','S','G'].map(mrow).join('')}</table></div>
+    <div class="sec">50日線より上の割合</div>${spark(H.a50,{fmt:v=>R(v),ref:0.5})}
+    <div class="sec">TT通過数（RS条件を除く7条件）</div>${spark(H.tt7,{color:'#3774d3'})}
+    <div class="sec">新高値 − 新安値</div>${spark(H.nh.map((x,i)=>x-H.nl[i]),{color:'#8a7b3c',ref:0})}
+  </div>`;
+}
+
+function renderSec(){
+  const S=D.sectors, gate=S.filter(s=>s.status);
+  const badge=s=>s.status?`<span class="st ${{合格:'ok',過熱:'hot',監視:'watch'}[s.status]}">${s.status}</span>`:'';
+  const mv=s=>{const d=s.rank_then-s.rank;return d>0?`<span class="up">▲${d}</span>`:d<0?`<span class="dn">▼${-d}</span>`:'<span class="mut">・</span>'};
+  const gateHtml=gate.length?gate.map(s=>`<div class="row ${s.status==='合格'?'':'w'}"><div class="h"><span>${esc(s.name)}${badge(s)}</span><span class="${cls(s.r63)}">3か月 ${P(s.r63)}</span></div>
+    <div class="m">高値から ${P(s.from_high)}・200日線 ${P(s.ext200)}・主導株 ${s.leaders}/${s.n}（${s.lead.map(t=>esc(t.replace('.T',''))).join(' ')}）</div>
+    ${s.status==='合格'?`<div class="m">押し目候補（2番手以降）：${s.cands.length?s.cands.map(c=>`${nm(c.t)}（RS${c.rs}・高値${P(c.off,0)}）`).join(' / '):'条件に合う押し目なし（待つ）'}</div>`
+      :s.status==='過熱'?'<div class="m">200日線から+150%超。新規は見送り。</div>':'<div class="m">着火待ち（3か月+30%かつ52週高値圏で合格）。</div>'}</div>`).join('')
+    :'<div class="empty">合格・監視の業種なし。</div>';
+  $('#sec').innerHTML=`
+  <div class="card"><h2>業種判定（3条件）<span>東証33業種</span></h2>
+    <details class="x"><summary>読み方</summary><div>米国版テーマ判定と同じ3条件を33業種の等ウェイト指数に当てはめたもの。①着火＝52週高値の3%以内かつ3か月+30%以上、②広がり＝RS85以上かつ200日線上の主導株が3銘柄以上、③過熱でない＝200日線から+150%以内。33業種は米国の細分テーマより粗いので、合格はかなり出にくい。日本株での検証はまだ。対象は50日平均売買代金1億円以上。</div></details>
+    ${gateHtml}</div>
+  <div class="card"><h2>業種ローテーション<span>3か月リターン順</span></h2>
+    <details class="x"><summary>読み方</summary><div>順位の矢印は「1か月前の時点の3か月リターン順位」からの変化。TT率＝業種内でトレンドテンプレート8条件を通過した割合。${D.sectors_skipped.length?`対象銘柄が5未満のため除外：${D.sectors_skipped.map(esc).join('・')}。`:''}</div></details>
+    <div class="wrap"><table class="tight"><tr><th>業種</th><th>順位</th><th>1か月</th><th>3か月</th><th>高値から</th><th>50日線上</th><th>TT率</th></tr>
+    ${S.map(s=>`<tr><td>${esc(s.name)}${badge(s)}</td><td>${s.rank}&nbsp;${mv(s)}</td><td class="${cls(s.r21)}">${P(s.r21)}</td><td class="${cls(s.r63)}">${P(s.r63)}</td><td>${P(s.from_high)}</td><td>${R(s.a50)}</td><td>${R(s.tt_rate)}</td></tr>`).join('')}
+    </table></div></div>`;
+}
+
+function sarLabel(r){
+  if(r.sar_up==null)return '';
+  if(!r.sar_up)return '<span class="chip r">週足SARベア</span>';
+  const a=r.sar_age;
+  if(a==null||a>=9)return `<span class="chip">週足SAR ${a??'9+'}週目・鮮度切れ</span>`;
+  if(a<=1)return `<span class="chip">週足SAR ${a===0?'転換週':'1週目・様子見'}</span>`;
+  return `<span class="chip g">週足SAR ${a}週目${a<=5?'・旬':''}</span>`;
+}
+function card(r,kind){
+  const pos=r.inside&&r.pos!=null?`HL→ライン ${Math.round(r.pos*100)}%`:(r.pivot_line?'ライン上':'構造なし');
+  const extra=kind==='late'?`<span class="chip">${r.signal_date}のシグナル・そこから ${P(r.from_signal)}</span>`:'';
+  const miss=r.missing?r.missing.map(m=>`<span class="chip r">${esc(m)}</span>`).join(''):'';
+  return `<div class="row ${kind}"><div class="h"><span>${nm(r.t)}</span><span>${Y(r.close)}</span></div>
+  <div class="m">${sub(r.t)}・ランク ${r.tier}・RS189 ${r.rs189}・RS63 ${r.rs63??'—'}・売買代金 上位${100-r.dv}%・連続 ${r.streak??'—'}日</div>
+  <div>${sarLabel(r)}<span class="chip">${pos}</span><span class="chip">UD比 ${r.udvr??'—'}</span>${extra}${miss}</div>
+  <div class="m">損切り ${Y(r.stop)}（−8%）・買い増し ${Y(r.add)} / ${Y(r.add2)}・21EMA安値 ${Y(r.el21)}</div></div>`;
+}
+function renderSwing(){
+  const W=D.swing, on=D.regime.on;
+  const best=W.core.filter(r=>r.buyable&&on), wait=W.core.filter(r=>!r.buyable||!on);
+  const late=W.late.filter(r=>r.buyable&&on);
+  const sec=(t,n,s)=>`<div class="sec">${t}<small>${n}件</small></div>${s}`;
+  $('#swing').innerHTML=`
+  <div class="card"><h2>スイング候補<span>流動性ユニバース ${W.universe}銘柄・選定 ${W.selected}</span></h2>
+    ${on?'<div class="bar on">地合いOK：本命を表示</div>':'<div class="bar off"><b>地合い：新規停止</b>　本命は出さず監視だけ</div>'}
+    <details class="x"><summary>読み方</summary><div>米国版の新ルールをそのまま移植。選定＝トレンドテンプレート・50日平均売買代金が上位5%・189日リターンが上位10%（株価${D.params.min_price}円以上かつ50日平均売買代金${D.params.min_dv/1e8}億円以上の中で）。タイミング＝値幅収縮（10日/50日≦0.9）・出来高減（5日/50日≦0.9）・当日+3%未満・前日+3%以下・UD比1.4未満。本命＝それに加えて週足SARが上向きで、HL→ラインの下半分にいないもの。<b>日本株での検証はまだ</b>なので、閾値（円建ての流動性条件を含む）は仮置き。</div></details>
+    ${sec('本命',best.length,best.map(r=>card(r,'')).join('')||'<div class="empty">本日の本命なし</div>')}
+    ${sec('まだ入れる',late.length,late.map(r=>card(r,'late')).join('')||'<div class="empty">なし</div>')}
+    ${wait.length?sec('条件はそろったが買わない',wait.length,wait.map(r=>card(r,'wait')).join('')):''}
+    ${sec('次の候補',W.watch_total,W.watch.map(r=>card(r,'w')).join('')||'<div class="empty">なし</div>')}
+  </div>`;
+}
+function renderLead(){
+  const L=D.rs_leaders;
+  $('#lead').innerHTML=`<div class="card"><h2>RSリーダー<span>TT8条件通過・売買代金1億円以上</span></h2>
+  <details class="x"><summary>読み方</summary><div>トレンドテンプレート8条件をすべて満たす銘柄をRS（全銘柄内の順位、1〜99）順に最大40件。</div></details>
+  <div class="wrap"><table><tr><th>銘柄</th><th>RS</th><th>終値</th><th>高値から</th><th>代金(億)</th></tr>
+  ${L.map(r=>`<tr><td>${nm(r.t)}<div class="mut" style="font-size:11px">${sub(r.t)}</div></td><td>${r.rs}</td><td>${Y(r.close)}</td><td>${P(r.from_high)}</td><td>${r.dv50}</td></tr>`).join('')}
+  </table></div></div>`;
+}
+fetch('data.json',{cache:'no-store'}).then(r=>r.json()).then(d=>{
+  D=d;$('#asof').textContent=d.session+' 引け';
+  renderMkt();renderSec();renderSwing();renderLead();
+  let t=location.hash.slice(1);
+  try{t=t||localStorage.getItem('jpTab')}catch(e){}
+  if(t)document.querySelector(`#nav button[data-t="${t}"]`)?.click();
+}).catch(e=>{$('#asof').textContent='データ読み込み失敗'});
+</script>
+</body>
+</html>
