@@ -80,8 +80,12 @@ def grab_period(tickers, period):
 
 
 def main() -> None:
+    global PERIOD
     if "--topup" in sys.argv:
         return topup()
+    out_name = "ohlcv.parquet"
+    if "--history" in sys.argv:  # long history for local verification only
+        PERIOD, out_name = "10y", "hist10y.parquet"
     uni = universe()
     uni.to_csv(CACHE / "universe.csv", index=False)
     tickers = list(REFS) + uni["ticker"].tolist()
@@ -92,7 +96,7 @@ def main() -> None:
         print(f"{min(i + CHUNK, len(tickers))}/{len(tickers)} rows={len(part)}", flush=True)
         time.sleep(PAUSE)
     df = pd.concat(parts, ignore_index=True)
-    df.to_parquet(CACHE / "ohlcv.parquet", index=False)
+    df.to_parquet(CACHE / out_name, index=False)
     got = df["ticker"].nunique()
     print(f"done: {got} tickers, last date {df['date'].max().date()}")
 
