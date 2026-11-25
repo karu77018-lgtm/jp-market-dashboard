@@ -16,7 +16,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
 CACHE = Path(os.environ.get("JP_CACHE", Path.home() / "jp-cache"))
-REFS = {"1306.T": "TOPIX連動ETF(1306)", "^N225": "日経平均", "2516.T": "グロース250ETF(2516)"}
+REFS = {"^N225": "日経平均", "1306.T": "TOPIX連動ETF(1306)", "2516.T": "グロース250ETF(2516)", "1570.T": "日経レバETF(1570)"}
 REGIME_SYM = "1306.T"
 
 # --- swing core rule (US: $10 / $20M -> JP: ¥200 / ¥5億, percentiles unchanged) ---
@@ -226,7 +226,8 @@ def main():
         ma50, ma200 = s.rolling(50).mean(), s.rolling(200).mean()
         hi = h[sym].dropna().rolling(252, min_periods=200).max()
         refs.append({"sym": sym, "name": name, "close": fnum(s.iloc[-1], 2), "date": str(s.index[-1].date()),
-                     "chg": fnum(s.iloc[-1] / s.iloc[-2] - 1), "r21": fnum(s.iloc[-1] / s.iloc[-22] - 1),
+                     "chg": fnum(s.iloc[-1] / s.iloc[-2] - 1), "r5": fnum(s.iloc[-1] / s.iloc[-6] - 1),
+                     "r21": fnum(s.iloc[-1] / s.iloc[-22] - 1),
                      "r63": fnum(s.iloc[-1] / s.iloc[-64] - 1),
                      "ma50": fnum(ma50.iloc[-1], 2), "ma200": fnum(ma200.iloc[-1], 2),
                      "vs50": fnum(s.iloc[-1] / ma50.iloc[-1] - 1), "vs200": fnum(s.iloc[-1] / ma200.iloc[-1] - 1),
@@ -235,6 +236,12 @@ def main():
     reg = next((r for r in refs if r["sym"] == REGIME_SYM), None)
     regime_on = bool(reg and reg["date"] == out["session"] and reg["vs200"] is not None and reg["vs200"] > 0)
     out["refs"], out["regime"] = refs, {"on": regime_on, **(reg or {})}
+    if REGIME_SYM in c.columns:
+        s = c[REGIME_SYM].dropna()
+        tail = s.index[-120:]
+        out["regime_hist"] = {"dates": [str(d.date()) for d in tail], "close": [fnum(x, 2) for x in s.loc[tail]],
+                              "ma50": [fnum(x, 2) for x in s.rolling(50).mean().loc[tail]],
+                              "ma200": [fnum(x, 2) for x in s.rolling(200).mean().loc[tail]]}
 
     # ---------------- per-stock state
     ma10, ma50, ma150, ma200 = (cs.rolling(n).mean() for n in (10, 50, 150, 200))
@@ -484,6 +491,12 @@ def main():
     out["swing"] = {"core": core, "late": late, "watch": watch[:20], "watch_total": len(watch),
                     "universe": int(s["liquid"].fillna(False).sum()), "selected": int(selected.sum())}
 
+    # ---------------- rules that held up on Japanese data (state today + history from stats.json)
+    import sys as _sys
+    _sys.path.insert(0, str(Path(__file__).parent))
+    import pulse
+    out["pulse"] = pulse.compute(cs, hs, vs, uni, {k: c[k] for k in REFS if k in c.columns})
+
     # ---------------- fine themes and co-moving groups
     import sys as _sys
     _sys.path.insert(0, str(Path(__file__).parent))
@@ -501,6 +514,7 @@ def main():
     shown |= set(T["names_extra"])
     shown |= {r["t"] for r in out["rs_leaders"]} | {c["t"] for sct in sectors for c in sct["cands"]}
     shown |= {t for sct in sectors for t in sct["lead"]}
+    shown |= {r["t"] for k in ("bnf", "quiet") for r in out["pulse"][k]}
     import unicodedata
     out["names"] = {t: {"name": unicodedata.normalize("NFKC", str(uni.at[t, "name"])), "s33": uni.at[t, "s33"], "m": uni.at[t, "market"]} for t in shown}
     out["params"] = {"min_price": MIN_PRICE, "min_dv": MIN_DV, "sect_min_dv": SECT_MIN_DV}

@@ -96,19 +96,82 @@ function spark(arr,{h=60,color='#23824d',fmt=v=>v,ref=null}={}){
   <div style="display:flex;justify-content:space-between;font-size:11px;color:#6f6c62"><span>${fmt(v[0])}</span><span>120日</span><span>${fmt(v[v.length-1])}</span></div>`;
 }
 
+function line(series,{h=120,colors=['#1c1b19','#3774d3','#8a7b3c'],ref=null,refLabel='',fmt=v=>v,dates=null,shade=null}={}){
+  const all=series.flat().filter(x=>x!=null).concat(ref==null?[]:[ref]);if(all.length<2)return '';
+  const w=300,lo=Math.min(...all),hi=Math.max(...all),sp=(hi-lo)||1,n=series[0].length;
+  const X=i=>i/(n-1)*w,Yv=x=>h-4-(x-lo)/sp*(h-8);
+  let g='';
+  if(shade)shade.forEach((on,i)=>{if(on)g+=`<rect x="${(X(i)-w/(n-1)/2).toFixed(1)}" y="0" width="${(w/(n-1)+.4).toFixed(1)}" height="${h}" fill="#f6e3de"/>`});
+  if(ref!=null)g+=`<line x1="0" x2="${w}" y1="${Yv(ref).toFixed(1)}" y2="${Yv(ref).toFixed(1)}" stroke="#b5523f" stroke-dasharray="4 3"/>`;
+  series.forEach((arr,k)=>{const pts=arr.map((x,i)=>x==null?null:`${X(i).toFixed(1)},${Yv(x).toFixed(1)}`).filter(Boolean).join(' ');
+    g+=`<polyline fill="none" stroke="${colors[k]}" stroke-width="${k?1.4:2}" points="${pts}"/>`});
+  const d=dates||[];
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">${g}</svg>
+  <div style="display:flex;justify-content:space-between;font-size:11px;color:#6f6c62"><span>${d[0]||''}</span><span>${refLabel}</span><span>${fmt(series[0][n-1])}</span></div>`;
+}
+const S1=x=>x&&x.n?`<span class="${cls(x.avg)}">${P(x.avg)}</span><br><span class="mut" style="font-size:11px">勝率${R(x.win)}・${x.n}件</span>`:'—';
+const PER=['2003-2007','2008-2012','2013-2017','2018-2026'];
+function perTable(rows){ // rows: [label, statsByPeriod]
+  return `<div class="wrap"><table class="tight"><tr><th>条件</th><th>全期間</th>${PER.map(p=>`<th>${p.slice(2,4)}〜${p.slice(7)}</th>`).join('')}</tr>
+  ${rows.map(([l,o])=>`<tr><td>${l}</td><td>${S1(o.all)}</td>${PER.map(p=>`<td>${S1(o[p])}</td>`).join('')}</tr>`).join('')}</table></div>`;
+}
+
 function renderMkt(){
-  const g=D.regime, b=D.breadth, H=D.breadth_hist;
-  const bar=g.on?`<div class="bar on">地合いOK：TOPIX連動ETF ${Y(g.close)} は200日線 ${Y(g.ma200)} の${P(g.vs200)}上。新規エントリー可</div>`
-    :`<div class="bar off"><b>地合い：新規停止</b>　TOPIX連動ETF ${Y(g.close)} が200日線 ${Y(g.ma200)} を${P(g.vs200)}。本命は出さず監視だけ</div>`;
-  const refs=D.refs.map(r=>`<div class="kpi"><span>${esc(r.name)}</span><b>${Y(r.close)}</b>
-    <i class="${cls(r.chg)}">${P(r.chg,2)}</i> <i class="mut">1か月 <span class="${cls(r.r21)}">${P(r.r21)}</span></i><br>
-    <i class="mut">50日線 <span class="${cls(r.vs50)}">${P(r.vs50)}</span>・200日線 <span class="${cls(r.vs200)}">${P(r.vs200)}</span>${r.ma200_up?'↑':'↓'}</i><br>
-    <i class="mut">52週高値から ${P(r.from_high)}</i></div>`).join('');
+  const g=D.regime, b=D.breadth, H=D.breadth_hist, U=D.pulse, ST=U.stats||{}, RH=D.regime_hist;
+  const mc={panic:'off',wash:'on',bear:'off',normal:''}[U.mode.key];
+  const z=(ST.breadth_zones||{})[U.zone]||{}, zall=(ST.breadth_zones||{})['全期間']||{};
+  const reg=(ST.regime||{})[g.vs200>0?'above':'below']||{};
+  const refs=D.refs.map(r=>`<tr><td>${esc(r.name)}</td><td>${Y(r.close)}</td><td class="${cls(r.chg)}">${P(r.chg)}</td><td class="${cls(r.r5)}">${P(r.r5)}</td><td class="${cls(r.r21)}">${P(r.r21)}</td><td class="${cls(r.vs200)}">${P(r.vs200)}</td><td>${P(r.from_high)}</td></tr>`).join('');
+  const bnf=ST.bnf||{}, wash=ST.washout||{}, q=ST.quiet||{}, fl=ST.sector_flow||{}, pdd=ST.panic_days||{};
+  const qrows=q.by_period?Object.entries(q.by_period).map(([k,o])=>`<tr><td>${k.replace('-','〜')}</td><td class="${cls(o.cagr)}">${P(o.cagr)}</td><td class="${cls(o.cagr_bench)}">${P(o.cagr_bench)}</td><td>${P(o.dd,0)}</td><td>${P(o.dd_bench,0)}</td><td>${R(o.month_win_vs_bench)}</td></tr>`).join(''):'';
+  const W=U.wash;
   const mrow=k=>{const x=b[k];return `<tr><td>${k==='all'?'全体':x.name}</td><td>${x.n}</td><td>${R(x.a50)}</td><td>${R(x.a200)}</td><td class="up">${x.nh}</td><td class="dn">${x.nl}</td><td>${x.tt}<br><span class="mut" style="font-size:11px">${R(x.tt_rate,1)}</span></td></tr>`};
+  const washTxt=W.active?`点灯中：サイン ${W.last_signal}、20日の検証期間はあと${W.left}日`
+    :W.armed?`待機：直近10日の最低 ${R(W.a50_min10,1)}（20%未満）。${R(W.need,1)}以上に戻ればサイン`
+    :`なし：直近10日の最低 ${R(W.a50_min10,1)}（20%未満で待機に入る）。前回のサイン ${W.last_signal||'—'}`;
   $('#mkt').innerHTML=`
-  <div class="card"><h2>地合い<span>${D.session}</span></h2>${bar}
-    <details class="x"><summary>読み方</summary><div>米国版の「QQQが200日線の上なら新規OK」を、TOPIX連動ETF（1306）に置き換えた判定。日本株での検証はまだ。</div></details>
-    <div class="grid">${refs}</div></div>
+  <div class="card"><h2>今日の判定<span>${D.session}</span></h2>
+    <div class="bar ${mc}"><b>${esc(U.mode.label)}</b>　${esc(U.mode.text)}</div>
+    <details class="x"><summary>読み方</summary><div>日本株の2003〜2026年の検証で効いた条件だけを使った「今日の状態」。売買の推奨ではない。検証は現在上場している銘柄だけで計算（上場廃止銘柄を含まない）ため、個別株の数字は良く出やすい。米国式の順張り（ブレイク・初押し・高値更新）は日本株では効かなかったので使っていない。</div></details>
+    <div class="grid">
+      <div class="kpi"><span>50日線より上（流動性上位${U.liquid_n}）</span><b>${R(U.a50,1)}</b><i class="mut">5日前 ${R(U.a50_5ago,1)}・1か月前 ${R(U.a50_21ago,1)}</i></div>
+      <div class="kpi"><span>25日線から−20%以下の割合</span><b class="${U.panic_today?'dn':''}">${R(U.panic_share,1)}</b><i class="mut">5%以上で全面安の日。直近20日で${U.panic_days_20}日</i></div>
+      <div class="kpi"><span>日経平均 52週高値から</span><b class="${U.bear?'dn':''}">${P(U.n225_from_high)}</b><i class="mut">−20%超で弱気相場</i></div>
+    </div>
+    <div class="m" style="font-size:12px;margin-top:8px">今の水準（50日線より上が${U.zone}）だった日の、TOPIX連動ETFのその後20日：平均${P((z.h20||{}).avg)}・上昇${R((z.h20||{}).win)}（全期間平均${P((zall.h20||{}).avg)}・${R((zall.h20||{}).win)}、2003年〜）</div>
+  </div>
+  <div class="card"><h2>指数<span>日次・週次・月次</span></h2>
+    <div class="wrap"><table class="tight"><tr><th>指数</th><th>終値</th><th>1日</th><th>5日</th><th>1か月</th><th>200日線</th><th>高値から</th></tr>${refs}</table></div>
+    ${RH?`<div class="sec">TOPIX連動ETFと50日線・200日線<small>120日</small></div>${line([RH.close,RH.ma50,RH.ma200],{dates:RH.dates,refLabel:'黒=終値 青=50日線 茶=200日線',fmt:Y})}`:''}
+    <div class="m" style="font-size:12px;margin-top:6px">200日線の${g.vs200>0?'上':'下'}にあった日の、その後60日：平均${P((reg.h60||{}).avg)}・上昇${R((reg.h60||{}).win)}（2003年〜）。上と下で差は小さく、日本株では200日線だけで新規を止める根拠は弱い。</div>
+  </div>
+  <div class="card"><h2>全面安（25日線から−20%以下）<span>${U.bnf_count}銘柄</span></h2>
+    <details class="x"><summary>読み方</summary><div>${esc(bnf.rule||'')}。${esc(bnf.note||'')}。同じ買い方でも、全面安の日だけに絞ると成績が大きく違う。直近の全面安の日：${(U.panic_recent||[]).slice(-8).join('、')}。</div></details>
+    ${line([U.hist.panic],{dates:U.hist.dates,ref:0.05,refLabel:'赤線=5%',fmt:v=>R(v,1),shade:U.hist.panic.map(x=>x>=0.05)})}
+    ${perTable([['全面安の日',bnf.panic||{}],['それ以外の日',bnf.alone||{}]])}
+    <div class="m" style="font-size:12px">1回あたりの平均（手仕舞いまで平均${bnf.panic_hold_days??'—'}日）。全面安の日のTOPIX連動ETF：その後20日 平均${P(((pdd.topix_fwd||{}).h20||{}).avg)}・上昇${R(((pdd.topix_fwd||{}).h20||{}).win)}（${pdd.count??'—'}日）。</div>
+    <div class="sec">今日 −20%以下の流動性上位銘柄<small>乖離の大きい順・最大15</small></div>
+    <div class="wrap"><table class="tight"><tr><th>銘柄</th><th>25日線から</th><th>終値</th><th>25日線</th><th>1日</th></tr>
+    ${U.bnf.map(r=>`<tr><td>${nm(r.t)}<div class="mut" style="font-size:11px">${sub(r.t)}</div></td><td class="dn">${P(r.dev)}</td><td>${Y(r.close)}</td><td>${Y(r.ma25)}</td><td class="${cls(r.chg)}">${P(r.chg)}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">なし</td></tr>'}</table></div>
+  </div>
+  <div class="card"><h2>反発サイン<span>50日線より上の割合</span></h2>
+    <div class="bar ${W.active?'on':''}">${washTxt}</div>
+    <details class="x"><summary>読み方</summary><div>${esc(wash.rule||'')}。${esc(wash.note||'')}。下は、サイン翌日から20日間持った場合の1回あたりの成績。直近のサイン：${(wash.dates||[]).join('、')}。</div></details>
+    ${line([U.hist.a50],{dates:U.hist.dates,ref:0.2,refLabel:'赤線=20%',fmt:v=>R(v,1)})}
+    ${perTable([['TOPIX連動ETF',wash.topix_1x||{}],['日経平均2倍',wash.nikkei_2x||{}],['弱気相場中（除外）',wash.bear_skipped||{}]])}
+  </div>
+  <div class="card"><h2>値動きの小さい大型株<span>${U.quiet.length}銘柄</span></h2>
+    <details class="x"><summary>読み方</summary><div>${esc(q.rule||'')}。比較はTOPIX連動ETF。月次勝率＝TOPIX連動ETFを上回った月の割合。2013〜2017年の上げ相場では下回った。強いのは下げ相場で崩れにくいこと。</div></details>
+    <div class="wrap"><table class="tight"><tr><th>期間</th><th>年率</th><th>TOPIX</th><th>最大下落</th><th>TOPIX</th><th>月次勝率</th></tr>${qrows}</table></div>
+    <div class="sec">今日の条件に当てはまる20銘柄<small>値動きの小さい順</small></div>
+    <div class="wrap"><table class="tight"><tr><th>銘柄</th><th>60日の値動き(年率)</th><th>高値比</th><th>1か月</th></tr>
+    ${U.quiet.map(r=>`<tr><td>${nm(r.t)}<div class="mut" style="font-size:11px">${sub(r.t)}</div></td><td>${R(r.vol,1)}</td><td>${R(r.near)}</td><td class="${cls(r.r21)}">${P(r.r21)}</td></tr>`).join('')}</table></div>
+  </div>
+  <div class="card"><h2>業種の資金の流れ<span>33業種・RS21−RS189</span></h2>
+    <details class="x"><summary>読み方</summary><div>${esc(fl.rule||'')}。プラス＝最近1か月の強さが長期の強さより上（資金が入ってきている）。ただし過去検証では、月末の上位5業種と下位5業種のその後21日の差は平均${P(((fl.spread_21d||{}).all||{}).avg,2)}（上位が勝った月${R(((fl.spread_21d||{}).all||{}).win)}）で、この順位だけで次の1か月は予測できなかった。今どこに資金が動いているかを見る計器として使う。</div></details>
+    <div class="wrap"><table class="tight"><tr><th>業種</th><th>流入</th><th>5日前</th><th>RS21</th><th>RS189</th><th>1日</th><th>5日</th><th>1か月</th></tr>
+    ${U.flow.map(r=>`<tr><td>${esc(r.name)}<div class="mut" style="font-size:11px">${r.n}銘柄</div></td><td class="${cls(r.flow)}"><b>${r.flow>0?'+':''}${r.flow}</b></td><td class="mut">${r.flow_5ago>0?'+':''}${r.flow_5ago}</td><td>${r.rs21}</td><td>${r.rs189}</td><td class="${cls(r.chg)}">${P(r.chg)}</td><td class="${cls(r.r5)}">${P(r.r5)}</td><td class="${cls(r.r21)}">${P(r.r21)}</td></tr>`).join('')}</table></div>
+  </div>
   <div class="card"><h2>市場の広がり<span>内国株・上場1年以上</span></h2>
     <details class="x"><summary>読み方</summary><div>50日線・200日線の上にいる銘柄の割合、52週の新高値・新安値の数、トレンドテンプレート8条件をすべて満たした銘柄数（RSは全銘柄内の順位）。</div></details>
     <div class="wrap"><table class="tight"><tr><th>市場</th><th>銘柄</th><th>50日線上</th><th>200日線上</th><th>新高値</th><th>新安値</th><th>TT通過</th></tr>

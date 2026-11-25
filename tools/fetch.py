@@ -14,7 +14,7 @@ import yfinance as yf
 
 CACHE = Path(os.environ.get("JP_CACHE", Path.home() / "jp-cache"))
 MARKETS = {"プライム（内国株式）": "P", "スタンダード（内国株式）": "S", "グロース（内国株式）": "G"}
-REFS = {"1306.T": "TOPIX(1306)", "^N225": "日経平均", "2516.T": "グロース250(2516)", "1321.T": "日経225(1321)"}
+REFS = {"1306.T": "TOPIX(1306)", "^N225": "日経平均", "2516.T": "グロース250(2516)", "1321.T": "日経225(1321)", "1570.T": "日経レバ(1570)"}
 CHUNK, PAUSE, PERIOD = 80, 2.0, "2y"
 
 
@@ -86,6 +86,8 @@ def main() -> None:
     out_name = "ohlcv.parquet"
     if "--history" in sys.argv:  # long history for local verification only
         PERIOD, out_name = "10y", "hist10y.parquet"
+    if "--max" in sys.argv:  # longest history for out-of-sample checks (local only)
+        PERIOD, out_name = "max", "histmax.parquet"
     uni = universe()
     uni.to_csv(CACHE / "universe.csv", index=False)
     tickers = list(REFS) + uni["ticker"].tolist()
