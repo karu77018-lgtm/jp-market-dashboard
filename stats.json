@@ -595,6 +595,25 @@
     "win": 0.76
    }
   ],
-  "note": "候補数はTOPIXの過去3か月の動きと連動するが、その後3か月とはほぼ無関係"
+  "note": "候補数はTOPIXの過去3か月の動きと連動するが、その後3か月とはほぼ無関係",
+  "long": {
+   "period": "2003-01〜2026-11",
+   "corr_past60": 0.276,
+   "corr_next60": -0.008,
+   "monthly_rank_corr_next60": -0.018,
+   "monthly_p": 0.757,
+   "divergence": {
+    "rule": "TOPIX連動ETFが52週高値の3%以内なのに、候補数（20日平均）が120日内の最大から半分以下",
+    "episodes": 6,
+    "next60_avg": -0.0171,
+    "all_next60_avg": 0.0256,
+    "p": 0.259
+   },
+   "peak_lead_days": {
+    "before_tops": 154,
+    "random_near_high": 148,
+    "tops": 6
+   }
+  }
  }
 }
