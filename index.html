@@ -174,7 +174,7 @@ function renderTheme(){
     <details class="x"><summary>読み方</summary><div>手作りの細かいテーマ（Yahooの細分類・事業内容のキーワード・代表銘柄で所属を決定、1銘柄が複数テーマに入ることあり）。順位の矢印は1か月前の3か月リターン順位からの変化。主導株＝RS85以上かつ200日線上。テーマの所属は現在の事業内容で決めているので、過去の検証には使っていない（後知恵になるため）。</div></details>
     <div class="wrap"><table class="tight"><tr><th>テーマ</th><th>順位</th><th>1か月</th><th>3か月</th><th>高値から</th><th>主導</th></tr>${rot}</table></div></div>
   <div class="card"><h2>連動群（自動検出）<span>上位15・全${T.groups.length}群</span></h2>
-    <details class="x"><summary>読み方</summary><div>直近120日の値動き（市場の動きを除いた分）が似ている銘柄を自動でまとめたもの。名前のないテーマや、業種をまたぐ物色の塊を見つけるため。テーマ名は所属銘柄の4割以上が同じテーマのときだけ付ける。</div></details>
+    <details class="x"><summary>読み方</summary><div>直近120日の値動き（市場の動きを除いた分）が似ている銘柄を自動でまとめたもの。名前のないテーマや、業種をまたぐ物色の塊を見つけるため。テーマ名は所属銘柄の4割以上が同じテーマのときだけ付ける。設定（直近120日・まとめ方0.75・1群30銘柄まで）は18通りの比較で決めた：どの設定でも上位群の先導株は市場を上回り（120日で+3.4〜+6.5%）、この設定が前半・後半とも安定（+1.8%／+6.8%）。</div></details>
     <div class="wrap"><table class="tight"><tr><th>連動群</th><th>1か月</th><th>3か月</th><th>高値から</th><th>主導</th></tr>${grp}</table></div></div>`;
 }
 
