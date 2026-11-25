@@ -57,6 +57,7 @@ svg{display:block;width:100%;height:auto}
   <div class="top"><h1>JP Market</h1><small id="asof">読み込み中…</small></div>
   <nav id="nav">
     <button data-t="mkt" class="on">地合い</button>
+    <button data-t="theme">テーマ</button>
     <button data-t="sec">業種</button>
     <button data-t="swing">スイング候補</button>
     <button data-t="lead">リーダー</button>
@@ -64,6 +65,7 @@ svg{display:block;width:100%;height:auto}
 </header>
 <main>
 <section id="mkt" class="on"></section>
+<section id="theme"></section>
 <section id="sec"></section>
 <section id="swing"></section>
 <section id="lead"></section>
@@ -137,6 +139,45 @@ function renderSec(){
     </table></div></div>`;
 }
 
+
+function renderTheme(){
+  const T=D.theme; if(!T){$('#theme').innerHTML='<div class="card"><div class="empty">テーマデータなし</div></div>';return;}
+  const badge=s=>s.status?`<span class="st ${{合格:'ok',過熱:'hot',監視:'watch'}[s.status]}">${s.status}</span>`:'';
+  const mv=s=>{const d=s.rank_then-s.rank;return d>0?`<span class="up">▲${d}</span>`:d<0?`<span class="dn">▼${-d}</span>`:'<span class="mut">・</span>'};
+  const code=t=>esc(t.replace('.T',''));
+  const short=t=>{const n=D.names[t];return `${code(t)} ${esc(n?n.name:'')}`};
+  const glabel=g=>g.label?esc(g.label):`連動群：${g.core.slice(0,2).map(t=>esc((D.names[t]||{}).name||code(t))).join('・')}など`;
+  const gate=[...T.themes.filter(x=>x.status).map(x=>({...x,kind:'テーマ',title:esc(x.name),mem:x.top})),
+              ...T.groups.filter(x=>x.status&&x.n>=5).map(x=>({...x,kind:'連動群',title:glabel(x),mem:x.members.slice(0,5)}))];
+  const order={合格:0,監視:1,過熱:2}; gate.sort((a,b)=>order[a.status]-order[b.status]||(b.r63-a.r63));
+  const gateHtml=gate.length?gate.map(x=>`<div class="row ${x.status==='合格'?'':'w'}"><div class="h"><span>${x.title}${badge(x)}<span class="chip">${x.kind}</span></span><span class="${cls(x.r63)}">3か月 ${P(x.r63)}</span></div>
+    <div class="m">高値から ${P(x.from_high)}・200日線 ${P(x.ext200)}・主導株 ${x.leaders}/${x.n}</div>
+    <div class="m">${x.mem.map(short).join(' / ')}</div></div>`).join(''):'<div class="empty">合格・監視のテーマなし</div>';
+  const cands=T.cands.map(r=>{const g=T.groups.find(g=>g.id===r.gid);const th=[...new Set(r.themes)];
+    const gl=g?(g.label&&th.includes(g.label)?'':`連動：${g.label?esc(g.label):g.core.filter(t=>t!==r.t).slice(0,2).map(t=>esc((D.names[t]||{}).name||code(t))).join('・')+'など'}`):'';
+    const sub=[th.map(esc).join('・'),gl].filter(Boolean).join('／');
+    return `<tr><td>${nm(r.t)}<div class="mut" style="font-size:11px">${sub}</div></td><td>${r.rs??'—'}</td><td>${R(r.near)}</td><td class="${cls(r.r126)}">${P(r.r126,0)}</td></tr>`}).join('');
+  const lone=T.lone.slice(0,12).map(r=>short(r.t)).join(' / ');
+  const majors=[...new Set(T.themes.map(x=>x.major))];
+  const rot=T.themes.map(x=>`<tr><td>${esc(x.name)}${badge(x)}<div class="mut" style="font-size:11px">${esc(x.major)}・${x.n}銘柄</div></td><td>${x.rank}&nbsp;${mv(x)}</td><td class="${cls(x.r21)}">${P(x.r21)}</td><td class="${cls(x.r63)}">${P(x.r63)}</td><td>${P(x.from_high)}</td><td>${x.leaders}</td></tr>`).join('');
+  const grp=T.groups.slice(0,15).map(g=>`<tr><td>${glabel(g)}<div class="mut" style="font-size:11px">${g.n}銘柄・${g.members.slice(0,4).map(short).join(' / ')}</div></td><td class="${cls(g.r21)}">${P(g.r21)}</td><td class="${cls(g.r63)}">${P(g.r63)}</td><td>${P(g.from_high)}</td><td>${g.leaders}${badge(g)}</td></tr>`).join('');
+  $('#theme').innerHTML=`
+  <div class="card"><h2>テーマ判定（3条件）<span>細かいテーマ＋連動群</span></h2>
+    <details class="x"><summary>読み方</summary><div>米国版と同じ3条件。①着火＝等ウェイト指数が52週高値の3%以内かつ3か月+30%以上、②広がり＝RS85以上かつ200日線上の主導株3銘柄以上、③過熱でない＝200日線から+150%以内。監視＝3か月+20%以上・高値から10%以内・主導株3以上。連動群は5銘柄以上のものだけ表示（4銘柄の群は偶然の連動が混じりやすい）。<br>検証（2018〜2026年・月末・120日後）：連動群で合格したグループの銘柄は大化け率10.5%（平常5%）、平均+7.7%（市場+4.2%）。ただし市場を上回ったのは49%で、当たり外れは大きい。</div></details>
+    ${gateHtml}</div>
+  <div class="card"><h2>先導株候補<span>${T.cands.length}銘柄</span></h2>
+    <details class="x"><summary>読み方</summary><div>6か月リターン上位20%・52週高値の90%以上で、かつ「3か月の強さが上位30%の連動群」に入っている銘柄。検証（2018〜2026年・120日後）：大化け8.5%・大負け4.4%・市場比+5.2%（前半+1.9%・後半+6.9%）。同じ強さでも連動する仲間がいない銘柄は大負け8.6%・市場比−2.3%。33業種で絞った場合は市場比+2.3%。売買ルールではなく候補のふるい。</div></details>
+    <div class="wrap"><table><tr><th>銘柄</th><th>RS</th><th>高値比</th><th>6か月</th></tr>${cands||'<tr><td colspan="4" class="empty">なし</td></tr>'}</table></div>
+    ${lone?`<div class="sec">強いが連動する仲間がいない（注意）<small>${T.lone.length}銘柄</small></div><div class="m" style="font-size:12px">${lone}</div>`:''}
+  </div>
+  <div class="card"><h2>テーマ・ローテーション<span>3か月順・${T.themes.length}テーマ</span></h2>
+    <details class="x"><summary>読み方</summary><div>手作りの細かいテーマ（Yahooの細分類・事業内容のキーワード・代表銘柄で所属を決定、1銘柄が複数テーマに入ることあり）。順位の矢印は1か月前の3か月リターン順位からの変化。主導株＝RS85以上かつ200日線上。テーマの所属は現在の事業内容で決めているので、過去の検証には使っていない（後知恵になるため）。</div></details>
+    <div class="wrap"><table class="tight"><tr><th>テーマ</th><th>順位</th><th>1か月</th><th>3か月</th><th>高値から</th><th>主導</th></tr>${rot}</table></div></div>
+  <div class="card"><h2>連動群（自動検出）<span>上位15・全${T.groups.length}群</span></h2>
+    <details class="x"><summary>読み方</summary><div>直近120日の値動き（市場の動きを除いた分）が似ている銘柄を自動でまとめたもの。名前のないテーマや、業種をまたぐ物色の塊を見つけるため。テーマ名は所属銘柄の4割以上が同じテーマのときだけ付ける。</div></details>
+    <div class="wrap"><table class="tight"><tr><th>連動群</th><th>1か月</th><th>3か月</th><th>高値から</th><th>主導</th></tr>${grp}</table></div></div>`;
+}
+
 function sarLabel(r){
   if(r.sar_up==null)return '';
   if(!r.sar_up)return '<span class="chip r">週足SARベア</span>';
@@ -180,7 +221,7 @@ function renderLead(){
 }
 fetch('data.json',{cache:'no-store'}).then(r=>r.json()).then(d=>{
   D=d;$('#asof').textContent=d.session+' 引け';
-  renderMkt();renderSec();renderSwing();renderLead();
+  renderMkt();renderTheme();renderSec();renderSwing();renderLead();
   let t=location.hash.slice(1);
   try{t=t||localStorage.getItem('jpTab')}catch(e){}
   if(t)document.querySelector(`#nav button[data-t="${t}"]`)?.click();

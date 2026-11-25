@@ -159,6 +159,22 @@ def watch_bucket(r):
     return 4
 
 
+def load_theme_info(tickers):
+    """Yahoo industry + business summary when the local cache has it, else the committed theme_map.json."""
+    p = CACHE / "info.json"
+    info = {}
+    for q in (CACHE / "info.json", CACHE / "info2.json"):
+        if q.exists():
+            info.update(json.loads(q.read_text(encoding="utf-8")))
+    if info:
+        return info
+    m = ROOT / "theme_map.json"
+    if m.exists():
+        tm = json.loads(m.read_text(encoding="utf-8"))
+        return {t: {"industry": v.get("industry"), "summary": None, "themes": v.get("themes")} for t, v in tm.items()}
+    return {}
+
+
 def pct_rank(values, mask):
     return values.where(mask).rank(pct=True) * 100
 
@@ -468,8 +484,21 @@ def main():
     out["swing"] = {"core": core, "late": late, "watch": watch[:20], "watch_total": len(watch),
                     "universe": int(s["liquid"].fillna(False).sum()), "selected": int(selected.sum())}
 
+    # ---------------- fine themes and co-moving groups
+    import sys as _sys
+    _sys.path.insert(0, str(Path(__file__).parent))
+    import theme_build
+    info = load_theme_info(stocks)
+    mret = c[REGIME_SYM].reindex(cs.index).ffill().pct_change(fill_method=None)
+    th_liquid = traded & (last >= 200) & (dv50.iloc[-1] >= 3e8) & (cs.notna().sum() >= 130)
+    near_all = cs / hi252
+    T = theme_build.compute(cs, hs, ls, cs.pct_change(fill_method=None), mret, th_liquid,
+                            rs.fillna(0), ma50, ma200, dv50, uni, info, near_all, cs / cs.shift(126) - 1)
+    out["theme"] = {k: v for k, v in T.items() if k != "names_extra"}
+
     # ---------------- names
     shown = {r["t"] for k in ("core", "late", "watch") for r in out["swing"][k]}
+    shown |= set(T["names_extra"])
     shown |= {r["t"] for r in out["rs_leaders"]} | {c["t"] for sct in sectors for c in sct["cands"]}
     shown |= {t for sct in sectors for t in sct["lead"]}
     import unicodedata
