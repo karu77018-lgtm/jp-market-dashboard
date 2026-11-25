@@ -272,7 +272,20 @@ function renderSwing(){
     ${sec('まだ入れる',late.length,late.map(r=>card(r,'late')).join('')||'<div class="empty">なし</div>')}
     ${wait.length?sec('条件はそろったが買わない',wait.length,wait.map(r=>card(r,'wait')).join('')):''}
     ${sec('次の候補',W.watch_total,W.watch.map(r=>card(r,'w')).join('')||'<div class="empty">なし</div>')}
-  </div>`;
+  </div>
+  ${(()=>{const H=D.swing_hist,C=((D.pulse||{}).stats||{}).swing_count||{};if(!H)return '';
+    const n=H.selected.length,avg=a=>a.reduce((x,y)=>x+y,0)/a.length;
+    const s20=H.selected.slice(-20),sigDays=H.signal.filter(x=>x>0).length;
+    return `<div class="card"><h2>候補数の推移とTOPIX<span>直近${n}日</span></h2>
+    <details class="x"><summary>読み方</summary><div>選定条件を満たした銘柄数（本命・まだ入れる・次の候補の合計の母集団）と、タイミング条件までそろった数（本命相当）。${esc(C.period||'')}の検証：選定数の平均${C.avg_selected??'—'}・最大${C.max_selected??'—'}、ゼロの日${C.zero_days_pct??'—'}%。本命相当が1つ以上出た日は${C.signal_days_pct??'—'}%。選定数はTOPIX連動ETFの過去3か月の動きと連動する（相関${C.corr_past63??'—'}）が、その後3か月とはほぼ無関係（相関${C.corr_next63??'—'}）。選定ゼロの日のその後60日のTOPIX連動ETFは平均${P((C.zero_next60||{}).avg)}・上昇${R((C.zero_next60||{}).win)}で、候補が少ないことは下落の合図にならなかった。</div></details>
+    <div class="grid">
+      <div class="kpi"><span>選定数（今日）</span><b>${H.selected[n-1]}</b><i class="mut">直近20日の平均 ${avg(s20).toFixed(1)}・250日平均 ${avg(H.selected).toFixed(1)}</i></div>
+      <div class="kpi"><span>本命相当（今日）</span><b>${H.signal[n-1]}</b><i class="mut">直近${n}日で出た日 ${sigDays}日</i></div>
+      <div class="kpi"><span>流動性ユニバース</span><b>${H.universe[n-1]}</b><i class="mut">株価200円・売買代金5億円以上</i></div>
+    </div>
+    <div class="sec">選定数</div>${line([H.selected],{dates:H.dates,refLabel:'',fmt:v=>v,colors:['#23824d']})}
+    <div class="sec">TOPIX連動ETF</div>${line([H.topix],{dates:H.dates,refLabel:'',fmt:Y})}
+  </div>`})()}`;
 }
 function renderLead(){
   const L=D.rs_leaders;

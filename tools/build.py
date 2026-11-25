@@ -490,6 +490,21 @@ def main():
             r["buyable"] = buyable(r)
     out["swing"] = {"core": core, "late": late, "watch": watch[:20], "watch_total": len(watch),
                     "universe": int(s["liquid"].fillna(False).sum()), "selected": int(selected.sum())}
+    # daily candidate counts for the last 250 sessions (vectorized; same conditions as at())
+    liq_all = (cs >= MIN_PRICE) & (dv50 >= MIN_DV)
+    tt_all = (cs > ma50) & (ma50 > ma150) & (ma150 > ma200) & (ma200 > ma200.shift(20)) & (cs >= 0.75 * hi252)
+    dvp_all = dv50.where(liq_all).rank(axis=1, pct=True) * 100
+    rsp_all = (cs / cs.shift(189) - 1).where(liq_all).rank(axis=1, pct=True) * 100
+    sel_all = (liq_all & tt_all & (dvp_all >= DV_PCT) & (rsp_all >= RS189_PCT)).fillna(False)
+    tim_all = ((vc <= MAX_VC) & (vdry <= MAX_VDRY) & (chg < MAX_CHG) & (chg.shift(1) <= MAX_PREV_CHG)).fillna(False)
+    sig_all = sel_all & tim_all & ~(udvr >= MAX_UDVR).fillna(False)
+    tail = cs.index[-250:]
+    ref = c[REGIME_SYM].reindex(cs.index).ffill() if REGIME_SYM in c.columns else None
+    out["swing_hist"] = {"dates": [str(d.date()) for d in tail],
+                         "selected": [int(x) for x in sel_all.loc[tail].sum(axis=1)],
+                         "signal": [int(x) for x in sig_all.loc[tail].sum(axis=1)],
+                         "universe": [int(x) for x in liq_all.loc[tail].sum(axis=1)],
+                         "topix": [fnum(x, 2) for x in ref.loc[tail]] if ref is not None else []}
 
     # ---------------- rules that held up on Japanese data (state today + history from stats.json)
     import sys as _sys
